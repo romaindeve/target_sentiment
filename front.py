@@ -4,27 +4,32 @@ import streamlit as st
 from statistics import mean
 import requests
 import lettria
+import json
+from st_aggrid import AgGrid
+from st_aggrid.grid_options_builder import GridOptionsBuilder
+from st_aggrid.shared import JsCode
 
 # Configuration
 lettria_key = st.secrets['lettria_key']
 model_auth = st.secrets['model_auth']
 
 default_text = "Entrez une phrase pour voir l'état actuel de notre compréhension...#compréhension"
-lang = 'en'
-data_path = 'test_news.csv'
-threshold = 2
+lang = 'fr'
+data_path = 'data_processed.csv'
+threshold = 21
 
 def get_predictions(df):
-    df['émotion'] = get_predictions_lettria(df['phrase'].to_list())
-    df['ressenti'] = get_predictions_model(df)
+    df['émotion'], df['ressenti'] = get_predictions_lettria(df['phrase'].to_list())
+    # df['ressenti'] = get_predictions_model(df)
     return df
 
 def get_predictions_model(df):
-    preds_obj = {"sentences": df['phrase'].to_list(),
-                 "targets" : df['cible'].to_list()}
-    header = {'Authorization': model_auth,}
-    preds = requests.post("https://target.sentiment.lettria.com/predict", data=preds_obj, headers=header)
-    return preds
+    preds_obj = json.dumps({"sentences": df['phrase'].to_list(),
+                 "targets" : df['cible'].to_list(),
+                 "lang": lang})
+    header = {'Authorization': model_auth}
+    preds = requests.request("POST", "https://target.sentiment.lettria.com/predict", data=preds_obj, headers=header)
+    return preds.text
 
 
 def get_predictions_lettria(documents):
@@ -32,9 +37,25 @@ def get_predictions_lettria(documents):
     for id, document in enumerate(documents):
         nlp.add_document(document, id=id)
 
-    preds = list(map(lambda x: x[0], nlp.emotion_ml_flat))
-    return preds
+    emotions = list(map(lambda x: ', '.join(set([y[0] for prop in x for y in prop])), nlp.emotion_ml))
+    sentiments = list(map(lambda x: mean(x), nlp.sentiment_ml))
+    return emotions, sentiments
 
+cellsytle_jscode = JsCode(
+    """
+function(params) {
+    if (params.value < -0.33) {
+        return {
+            'color': 'red'
+        }
+    } else if (params.value > 0.33){
+        return {
+            'color': 'green',
+        }
+    }
+};
+    """
+)
 
 def benchmark_test():
     df_eval = pd.DataFrame(st.session_state['df_eval'])
@@ -44,8 +65,20 @@ def benchmark_test():
 
     st.write("## Phrases d'exemple")
 
-    st.write(df_eval[['phrase','cible','ressenti','émotion']])
-
+    # st.write(df_eval[['phrase','ressenti','émotion','cible','ressenti cible']])
+    
+    gb = GridOptionsBuilder.from_dataframe(df_eval)
+    gb.configure_pagination()
+    gb.configure_column("ressenti", cellStyle=cellsytle_jscode)
+    gb.configure_column("ressenti cible", cellStyle=cellsytle_jscode)
+    gridOptions = gb.build()
+    AgGrid(
+        df_eval.round(2),
+        gridOptions=gridOptions,
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,
+        height=501
+    )
 
 def sentence_user():
     df_user = pd.DataFrame(st.session_state['df_user'])
@@ -83,7 +116,7 @@ st.set_page_config(page_title="Lettria", page_icon=":brain:",
 
 if 'df_eval' not in st.session_state:
     st.session_state['df_eval'] = pd.read_csv(
-        data_path, sep=',', encoding="utf-8")[['phrase','cible','y']].sample(frac=1).iloc[:threshold].to_dict(orient='list')
+        data_path, sep=',', encoding="utf-8")[['phrase','cible','ressenti cible']].sample(frac=1).iloc[:threshold].to_dict(orient='list')
 
 
 if 'df_user' not in st.session_state:
@@ -99,6 +132,7 @@ st.write("# Démonstration des possibilités Lettria")
 
 benchmark_test()
 
-sentence_user()
+st.write("### L'ajout de phrase sur la plateforme n'est pas encore disponible...")
+# sentence_user()
 
-benchmark_user()
+# benchmark_user()
