@@ -64,10 +64,8 @@ def benchmark_test():
         st.session_state['df_eval'] = df_eval.to_dict(orient='list')
 
     st.write("## Phrases d'exemple")
-
-    # st.write(df_eval[['phrase','ressenti','émotion','cible','ressenti cible']])
     
-    gb = GridOptionsBuilder.from_dataframe(df_eval)
+    gb = GridOptionsBuilder.from_dataframe(df_eval[['phrase','ressenti','émotion','cible','ressenti cible']])
     gb.configure_pagination()
     gb.configure_column("ressenti", cellStyle=cellsytle_jscode)
     gb.configure_column("ressenti cible", cellStyle=cellsytle_jscode)
