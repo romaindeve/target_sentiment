@@ -28,7 +28,7 @@ def get_predictions_model(df):
                  "targets" : df['cible'].to_list(),
                  "lang": lang})
     header = {'Authorization': model_auth}
-    preds = requests.request("POST", "https://target.sentiment.lettria.com/predict", data=preds_obj, headers=header)
+    preds = requests.request("POST", "http://ec2-54-194-238-47.eu-west-1.compute.amazonaws.com:5666/target", data=preds_obj, headers=header)
     return preds.text
 
 
@@ -130,7 +130,7 @@ st.write("# Démonstration des possibilités Lettria")
 
 benchmark_test()
 
-st.write("### L'ajout de phrase sur la plateforme n'est pas encore disponible...")
-# sentence_user()
+st.write("# Phrase utilisateur")
+sentence_user()
 
-# benchmark_user()
+benchmark_user()
