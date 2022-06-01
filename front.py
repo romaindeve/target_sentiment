@@ -11,7 +11,8 @@ from st_aggrid.shared import JsCode
 
 # Configuration
 lettria_key = st.secrets['lettria_key']
-model_auth = st.secrets['model_auth']
+model_username = st.secrets['model_username']
+model_password = st.secrets['model_password']
 
 default_text = "Entrez une phrase pour voir l'état actuel de notre compréhension...#compréhension"
 lang = 'fr'
@@ -27,15 +28,14 @@ def get_predictions_model(df):
     preds_obj = json.dumps({"sentences": df['phrase'].to_list(),
                  "targets" : df['cible'].to_list(),
                  "lang": lang})
-    header = {'Authorization': model_auth}
-    preds = requests.request("POST", "http://ec2-54-194-238-47.eu-west-1.compute.amazonaws.com:5666/target", data=preds_obj, headers=header)
+    preds = requests.request("POST", "http://ec2-54-194-238-47.eu-west-1.compute.amazonaws.com:5666/target", json=preds_obj, auth=(model_username, model_password))
     return preds.text
 
 
 def get_predictions_lettria(documents):
     nlp = lettria.NLP(lettria_key)
     for id, document in enumerate(documents):
-        nlp.add_document(document, id=id)
+        nlp.add_document(document)
 
     emotions = list(map(lambda x: ', '.join(set([y[0] for prop in x for y in prop])), nlp.emotion_ml))
     sentiments = list(map(lambda x: mean(x), nlp.sentiment_ml))
